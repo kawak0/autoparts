@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 import urllib.request
 import json
 import requests
@@ -27,6 +28,16 @@ try:
 except:
     print ("No hay conexión")
 
+def create_dir(*values):
+    #Creates a directory
+    dir = ""
+    for value in values:
+        dir += value.replace('/','-') + "/"
+    
+    if not os.path.exists('./files/' + dir):
+        os.makedirs('./files/' + dir)
+
+
 pattern = re.compile(r'<option.*?value="(\d+)">(.*?)</option>',re.DOTALL)
 for (value, make) in re.findall(pattern, html):
    print (make, value)
@@ -41,34 +52,46 @@ for (value, make) in re.findall(pattern, html):
 #seat =  {'idOscManufacturer': codigoSeat }
 #res = requests.post(url, data=seat)
 
+
 #For a make, get the models and values
 url = 'http://www.oscaro.es/Catalog/Vehicle/ModelsJson'
 codigoSeat = 192
+make = 'SEAT'
 data =  {'idOscManufacturer': codigoSeat}
-response = getUrl(url, data)
+make_response = getUrl(url, data)
 #print (response)
 
-pattern = re.compile(r'<optgroup label="(.*?)">(.*?)</optgroup>',re.DOTALL) 
-for (model, rest ) in re.findall(pattern, response):
-   pattern = re.compile(r'<option.*?value="(.+?)">(.+?)</option>',re.DOTALL) 
-   for (value, exact_model) in re.findall(pattern,rest):
-      #print (model, exact_model, value)
-       pass
+#Get the group model
+pattern_group = re.compile(r'<optgroup label="(.*?)">(.*?)</optgroup>',re.DOTALL) 
+for (model, rest ) in re.findall(pattern_group, make_response):
+    #Get the exact_model
+    pattern_model = re.compile(r'<option.*?value="(.+?)">(.+?)</option>',re.DOTALL)
+    for (value_model, exact_model) in re.findall(pattern_model,rest):
+        #print (model, exact_model, value)
+        #Get the web of the exact_model
+        url = 'http://www.oscaro.es/Catalog/Vehicle/TypesJson'
+        data =  {'idOscModel': value_model }
+        model_response = getUrl(url, data)
+        pattern_type = re.compile(r'<optgroup label="(.*?)">(.*?)</optgroup>',re.DOTALL) 
+        for (combustible, rest ) in re.findall(pattern_type, model_response):
+            #Get the first word (Gasolina, Diesel, GPL, ...)
+            combustible = combustible.partition(' ')[0]
+            pattern = re.compile(r'<option.*?value="(.+?)">(.+?)</option>',re.DOTALL) 
+            for (value_type, exact_type) in re.findall(pattern,rest):
+                print (combustible, exact_model, value)
+                create_dir(make,model,exact_model,combustible,exact_type)
+        #      pass
+        
 
 
 
-#Example with exact_Model Ibiza II = 1098:  get the  types of that model
-url = 'http://www.oscaro.es/Catalog/Vehicle/TypesJson'
-codigoIbiza = 1098
-data =  {'idOscModel': codigoIbiza }
-response = getUrl(url, data)
 
 
-pattern = re.compile(r'<optgroup label="(.*?)">(.*?)</optgroup>',re.DOTALL) 
-for (combustible_cilindrada, rest ) in re.findall(pattern, response):
-   pattern = re.compile(r'<option.*?value="(.+?)">(.+?)</option>',re.DOTALL) 
-   for (value, exact_model) in re.findall(pattern,rest):
-       print (combustible_cilindrada, exact_model, value)
+#pattern = re.compile(r'<optgroup label="(.*?)">(.*?)</optgroup>',re.DOTALL) 
+#for (combustible_cilindrada, rest ) in re.findall(pattern, response):
+#   pattern = re.compile(r'<option.*?value="(.+?)">(.+?)</option>',re.DOTALL) 
+#   for (value, exact_model) in re.findall(pattern,rest):
+#       print (combustible_cilindrada, exact_model, value)
        #Save it in a file
        #f = open('./files/'+value, 'w')
        #value = value.split('_')
@@ -99,7 +122,7 @@ if matchObj:
    \s+src="(.+?)".*? #Pase the autopart_make image 
    <img\salt=".*?\1\s(.*?)" #Parse the autopart_model name
    \s+src="(.+?)".*? #Parse the autopart_model image
-   <span\sclass="toprouge">.*?(\d{1,}).*?,(\d{1,}).*?\s€.*?<hr\s/> #Parse the price and decimal_price
+   <span\sclass="toprouge">.*?(\d{1,}).*?,.*?(\d{1,}).*?\s€.*?<hr\s/> #Parse the price and decimal_price
    """,re.X | re.S)
    for (autopart_make, make_image, autopart_model, autopart_image, price, decimal_price) in re.findall(pattern,htmlPart):
        print (autopart_make, make_image, autopart_model, autopart_image, price + "," + decimal_price)
